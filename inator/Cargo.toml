@@ -1,0 +1,9 @@
+[package]
+name = "inator"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }

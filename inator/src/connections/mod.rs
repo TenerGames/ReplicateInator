@@ -11,7 +11,7 @@ pub struct ClientConnections(pub HashMap<String, ClientConnectionType>);
 #[derive(Resource)]
 pub struct ServerConnections(pub HashMap<String, ServerConnectionType>);
 
-#[derive(Eq,PartialEq)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum OrderOptions{
     LittleEndian,
     BigEndian
@@ -35,6 +35,25 @@ pub enum BytesOptions {
     F64,
 }
 
+
+#[derive(Debug)]
+pub enum ReadValue {
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    U128(u128),
+
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    I128(i128),
+
+    F32(f32),
+    F64(f64),
+}
+
 pub enum ServerConnectionType{
     Tcp(ServerTcpConnection)
 }
@@ -46,6 +65,7 @@ pub enum ClientConnectionType{
 pub trait Connection {
     fn start_connection(&mut self);
     fn can_start(&self) -> bool;
+    fn cancel_connection(&mut self);
     fn disconnect(&mut self);
 }
 

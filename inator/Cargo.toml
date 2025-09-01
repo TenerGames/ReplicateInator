@@ -7,3 +7,6 @@ edition.workspace = true
 bevy = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
+typetag = { workspace = true }
+serde = { workspace = true }
+bincode = { workspace = true }

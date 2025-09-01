@@ -1,4 +1,5 @@
-﻿use tokio::io::{AsyncReadExt, AsyncWriteExt};
+﻿use std::io::Error;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use crate::connections::{BytesOptions, OrderOptions, ReadValue};
 
@@ -56,58 +57,61 @@ pub fn value_to_bytes(value: &ReadValue, order: &OrderOptions) -> Vec<u8> {
 
 pub async fn write_from_settings(
     write_half: &mut OwnedWriteHalf,
-    value: &ReadValue,
+    encoded: &[u8],
+    bytes: &BytesOptions,
     order: &OrderOptions,
-) -> Result<(), tokio::io::Error> {
-    match value {
+) -> Result<(), Error> {
+    let len = encoded.len();
+    
+    match bytes {
         // Unsigned
-        ReadValue::U8(v) => write_half.write_u8(*v).await?,
-        ReadValue::U16(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_u16_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_u16(*v).await?,
+        BytesOptions::U8 => write_half.write_u8(len as u8).await?,
+        BytesOptions::U16 => match order {
+            OrderOptions::LittleEndian => write_half.write_u16_le(len as u16).await?,
+            OrderOptions::BigEndian => write_half.write_u16(len as u16).await?,
         },
-        ReadValue::U32(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_u32_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_u32(*v).await?,
+        BytesOptions::U32 => match order {
+            OrderOptions::LittleEndian => write_half.write_u32_le(len as u32).await?,
+            OrderOptions::BigEndian => write_half.write_u32(len as u32).await?,
         },
-        ReadValue::U64(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_u64_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_u64(*v).await?,
+        BytesOptions::U64 => match order {
+            OrderOptions::LittleEndian => write_half.write_u64_le(len as u64).await?,
+            OrderOptions::BigEndian => write_half.write_u64(len as u64).await?,
         },
-        ReadValue::U128(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_u128_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_u128(*v).await?,
+        BytesOptions::U128 => match order {
+            OrderOptions::LittleEndian => write_half.write_u128_le(len as u128).await?,
+            OrderOptions::BigEndian => write_half.write_u128(len as u128).await?,
         },
 
         // Signed
-        ReadValue::I8(v) => write_half.write_i8(*v).await?,
-        ReadValue::I16(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_i16_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_i16(*v).await?,
+        BytesOptions::I8 => write_half.write_i8(len as i8).await?,
+        BytesOptions::I16 => match order {
+            OrderOptions::LittleEndian => write_half.write_i16_le(len as i16).await?,
+            OrderOptions::BigEndian => write_half.write_i16(len as i16).await?,
         },
-        ReadValue::I32(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_i32_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_i32(*v).await?,
+        BytesOptions::I32 => match order {
+            OrderOptions::LittleEndian => write_half.write_i32_le(len as i32).await?,
+            OrderOptions::BigEndian => write_half.write_i32(len as i32).await?,
         },
-        ReadValue::I64(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_i64_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_i64(*v).await?,
+        BytesOptions::I64 => match order {
+            OrderOptions::LittleEndian => write_half.write_i64_le(len as i64).await?,
+            OrderOptions::BigEndian => write_half.write_i64(len as i64).await?,
         },
-        ReadValue::I128(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_i128_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_i128(*v).await?,
+        BytesOptions::I128 => match order {
+            OrderOptions::LittleEndian => write_half.write_i128_le(len as i128).await?,
+            OrderOptions::BigEndian => write_half.write_i128(len as i128).await?,
         },
 
-        // Floats
-        ReadValue::F32(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_f32_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_f32(*v).await?,
+        // Float 
+        BytesOptions::F32 => match order {
+            OrderOptions::LittleEndian => write_half.write_f32_le(len as f32).await?,
+            OrderOptions::BigEndian => write_half.write_f32(len as f32).await?,
         },
-        ReadValue::F64(v) => match order {
-            OrderOptions::LittleEndian => write_half.write_f64_le(*v).await?,
-            OrderOptions::BigEndian => write_half.write_f64(*v).await?,
+        BytesOptions::F64 => match order {
+            OrderOptions::LittleEndian => write_half.write_f64_le(len as f64).await?,
+            OrderOptions::BigEndian => write_half.write_f64(len as f64).await?,
         },
-    };
+    }
 
     Ok(())
 }

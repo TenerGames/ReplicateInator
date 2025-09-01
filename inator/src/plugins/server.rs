@@ -1,7 +1,10 @@
-﻿use bevy::app::App;
+﻿use std::sync::Arc;
+use bevy::app::App;
 use bevy::prelude::{EventWriter, First, IntoScheduleConfigs, Last, Plugin, ResMut, Update};
 use crate::connections::{Connection, Connections, ServerConnectionType, ServerConnections};
-use crate::plugins::ClientConnected;
+use crate::connections::tcp::connection::TcpConnection;
+use crate::NetworkSide;
+use crate::plugins::{ClientConnected, ConnectedMessage};
 
 pub struct ServerPlugin;
 
@@ -35,8 +38,18 @@ pub fn check_clients_connected(
         match connection {
             ServerConnectionType::Tcp(connection) => {
                 match connection.client_connected_receiver.try_recv() {
-                    Ok((_,addr)) => {
+                    Ok((tcp_stream,addr)) => {
                         client_connected_event.write(ClientConnected(addr,connection.name));
+
+                        let settings = &connection.settings;
+                        let mut tcp_connection = TcpConnection::new(tcp_stream, connection.name, NetworkSide::Client, Arc::clone(&connection.cancel_token),settings.bytes,settings.order);
+                        let current_uuid = tcp_connection.uuid.unwrap();
+                        
+                        tcp_connection.send_client_message(Box::new(ConnectedMessage{
+                            uuid: current_uuid
+                        }),connection.runtime.as_ref().unwrap());
+                        
+                        connection.connections.insert(current_uuid,tcp_connection);
                     }
                     Err(_) => {
                         continue

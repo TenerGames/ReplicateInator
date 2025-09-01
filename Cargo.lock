@@ -2470,10 +2470,12 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bincode",
+ "message_derive",
  "serde",
  "tokio",
  "tokio-util",
  "typetag",
+ "uuid",
 ]
 
 [[package]]
@@ -2769,6 +2771,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843a98750cd611cc2965a8213b53b43e715f13c37a9e096c6408e69990961db7"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "message_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

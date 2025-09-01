@@ -10,8 +10,8 @@ impl Plugin for MessagingPlugin {
     fn build(&self, app: &mut App) {
         match self.network_side{
             NetworkSide::Client => app.insert_resource(ClientConnections::new()),
-            NetwrokSide::Server => app.insert_resource(ServerConnections::new()),
+            NetworkSide::Server => app.insert_resource(ServerConnections::new()),
             _ => unreachable!()
-        }
+        };
     }
 }

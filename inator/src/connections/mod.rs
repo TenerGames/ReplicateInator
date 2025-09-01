@@ -5,11 +5,13 @@ use crate::connections::tcp::client::{ClientTcpConnection, ClientTcpSettings};
 use crate::connections::tcp::server::{ServerTcpConnection, ServerTcpSettings};
 pub mod tcp;
 
-#[derive(Resource)]
-pub struct ClientConnections(pub HashMap<String, ClientConnectionType>);
+type ConnectMap<T> = HashMap<String,T>;
 
 #[derive(Resource)]
-pub struct ServerConnections(pub HashMap<String, ServerConnectionType>);
+pub struct ClientConnections(pub ConnectMap<ClientConnectionType>);
+
+#[derive(Resource)]
+pub struct ServerConnections(pub ConnectMap<ServerConnectionType>);
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum OrderOptions{

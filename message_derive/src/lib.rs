@@ -5,8 +5,8 @@ use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(Message)]
 pub fn derive_message(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
+    let ast = parse_macro_input!(input as DeriveInput);
+    let name = ast.ident;
 
     let expanded = quote! {
         #[typetag::serde]
@@ -19,3 +19,4 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+

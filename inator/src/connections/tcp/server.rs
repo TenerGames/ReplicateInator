@@ -176,6 +176,10 @@ impl Connection for ServerTcpConnection {
     }
 
     fn cancel_connection(&mut self) {
+        if let Some(listener) = self.listener.take() {
+            drop(listener);
+        }
+        
         self.cancel_token.cancel();
         self.dropped.store(true,Ordering::SeqCst);
         self.started = false;

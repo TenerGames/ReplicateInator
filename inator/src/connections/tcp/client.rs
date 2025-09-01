@@ -96,6 +96,14 @@ impl Connection for ClientTcpConnection {
     }
 
     fn cancel_connection(&mut self) {
+        if let Some(read_half) = self.read_half.take() {
+            drop(read_half);
+        }
+
+        if let Some(write_half) = self.write_half.take() {
+            drop(write_half);
+        }
+
         self.cancel_token.cancel();
         self.dropped.store(true,Ordering::SeqCst);
         self.started = false;

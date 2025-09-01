@@ -7,6 +7,8 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
+use crate::connections::tcp::client::ClientTcpSettings;
+use crate::connections::tcp::reader_writer::{read_from_settings, value_to_bytes};
 use crate::NetworkSide;
 
 pub struct TcpConnection {
@@ -38,7 +40,7 @@ impl TcpConnection {
         }
     }
 
-    pub fn start_listen_server(&mut self, runtime: &Runtime, cancellation_token: Arc<CancellationToken>) {
+    pub fn start_listen_server(&mut self, runtime: &Runtime, cancellation_token: Arc<CancellationToken>, settings: &ClientTcpSettings) {
         assert!(self.network_side == NetworkSide::Server,"You can just listen the server from client");
 
         let read_half = match &self.read_half {
@@ -47,6 +49,8 @@ impl TcpConnection {
         };
 
         let connection_down_sender = Arc::clone(&self.connection_down_sender);
+        let bytes_options = settings.bytes;
+        let order_options = settings.order;
 
         runtime.spawn(async move {
             loop {
@@ -55,9 +59,9 @@ impl TcpConnection {
                         break;
                     },
                     mut guard = read_half.lock() => {
-                        match guard.read_u32().await {
-                            Ok(length) => {
-                                let mut buf = vec![0u8; length as usize];
+                        match read_from_settings(&mut guard, &bytes_options, &order_options).await {
+                            Ok(read_value) => {
+                                let mut buf = value_to_bytes(&read_value, &order_options);
 
                                 match guard.read_exact(&mut buf).await {
                                     Ok(_) => {

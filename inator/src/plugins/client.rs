@@ -41,7 +41,7 @@ pub fn check_connection_up(
 
                         let mut tcp_connection = TcpConnection::new(tcp_stream, connection.name, NetworkSide::Client);
 
-                        tcp_connection.start_listen_server(connection.runtime.as_ref().unwrap(),Arc::clone(&connection.cancel_token));
+                        tcp_connection.start_listen_server(connection.runtime.as_ref().unwrap(),Arc::clone(&connection.cancel_token), &connection.settings);
 
                         connection.local_tcp_connection = Some(tcp_connection);
                     }

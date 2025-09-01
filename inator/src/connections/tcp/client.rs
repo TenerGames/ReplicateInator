@@ -1,21 +1,18 @@
-﻿use std::net::IpAddr;
+﻿use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{TcpStream};
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use crate::connections::{BytesOptions, Connection, OrderOptions};
+use crate::connections::tcp::connection::TcpConnection;
 
 pub struct ClientTcpSettings {
     pub address: IpAddr,
     pub port: u16,
     pub bytes: BytesOptions,
     pub order: OrderOptions,
-    pub max_connections: usize,
-    pub recuse_when_full: bool
 }
 pub struct ClientTcpConnection {
     pub settings: ClientTcpSettings,
@@ -23,19 +20,26 @@ pub struct ClientTcpConnection {
     pub started: bool,
     pub runtime: Option<Runtime>,
     pub dropped: Arc<AtomicBool>,
+    pub local_tcp_connection: Option<TcpConnection>,
     pub cancel_token: Arc<CancellationToken>,
-    pub read_half: Option<Arc<Mutex<OwnedReadHalf>>>,
-    pub write_half: Option<Arc<OwnedWriteHalf>>,
-    pub connection_down_sender: Arc<UnboundedSender<()>>,
-    pub connection_down_receiver: UnboundedReceiver<()>,
-    pub connection_up_sender: Arc<UnboundedSender<(Arc<Mutex<OwnedReadHalf>>,Arc<OwnedWriteHalf>)>>,
-    pub connection_up_receiver: UnboundedReceiver<(Arc<Mutex<OwnedReadHalf>>,Arc<OwnedWriteHalf>)>,
+    pub connection_up_sender: Arc<UnboundedSender<TcpStream>>,
+    pub connection_up_receiver:  UnboundedReceiver<TcpStream>,
+}
+
+impl Default for ClientTcpSettings {
+    fn default() -> Self {
+        ClientTcpSettings {
+            address: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            port: 8080,
+            bytes: BytesOptions::U32,
+            order: OrderOptions::LittleEndian
+        }
+    }
 }
 
 impl ClientTcpConnection {
     pub fn new(settings: ClientTcpSettings, name: &'static str) -> ClientTcpConnection {
-        let (connection_down_sender,connection_down_receiver) = unbounded_channel::<()>();
-        let (connection_up_sender, connection_up_receiver) = unbounded_channel::<(Arc<Mutex<OwnedReadHalf>>,Arc<OwnedWriteHalf>)>();
+        let (connection_up_sender, connection_up_receiver) = unbounded_channel::<TcpStream>();
 
         ClientTcpConnection {
             settings,
@@ -43,11 +47,8 @@ impl ClientTcpConnection {
             started: false,
             runtime: Some(Runtime::new().unwrap()),
             dropped: Arc::new(AtomicBool::new(false)),
+            local_tcp_connection: None,
             cancel_token: Arc::new(CancellationToken::new()),
-            read_half: None,
-            write_half: None,
-            connection_down_sender: Arc::new(connection_down_sender),
-            connection_down_receiver,
             connection_up_sender: Arc::new(connection_up_sender),
             connection_up_receiver
         }
@@ -83,11 +84,7 @@ impl Connection for ClientTcpConnection {
                 }
             };
 
-            let (read_half, write_half) = match tcp_stream.into_split() {
-                (read_half, write_half) => (Arc::new(Mutex::new(read_half)), Arc::new(write_half)),
-            };
-
-            connection_up_sender.send((Arc::clone(&read_half),Arc::clone(&write_half))).unwrap();
+            connection_up_sender.send(tcp_stream).unwrap();
         });
     }
 
@@ -96,12 +93,8 @@ impl Connection for ClientTcpConnection {
     }
 
     fn cancel_connection(&mut self) {
-        if let Some(read_half) = self.read_half.take() {
-            drop(read_half);
-        }
-
-        if let Some(write_half) = self.write_half.take() {
-            drop(write_half);
+        if let Some(local_tcp_connection) = self.local_tcp_connection.take() {
+            drop(local_tcp_connection);
         }
 
         self.cancel_token.cancel();
@@ -114,12 +107,8 @@ impl Connection for ClientTcpConnection {
             runtime.shutdown_background();
         }
 
-        if let Some(read_half) = self.read_half.take() {
-            drop(read_half);
-        }
-
-        if let Some(write_half) = self.write_half.take() {
-            drop(write_half);
+        if let Some(local_tcp_connection) = self.local_tcp_connection.take() {
+            drop(local_tcp_connection);
         }
 
         self.cancel_token.cancel();

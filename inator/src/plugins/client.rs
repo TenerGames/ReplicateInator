@@ -1,6 +1,9 @@
-﻿use bevy::app::App;
+﻿use std::sync::Arc;
+use bevy::app::App;
 use bevy::prelude::{First, IntoScheduleConfigs, Last, Plugin, ResMut};
 use crate::connections::{ClientConnectionType, ClientConnections, Connection, Connections};
+use crate::connections::tcp::connection::TcpConnection;
+use crate::NetworkSide;
 
 pub struct ClientPlugin;
 
@@ -31,17 +34,16 @@ pub fn check_connection_up(
         match connection {
             ClientConnectionType::Tcp(connection) => {
                 match connection.connection_up_receiver.try_recv() {
-                    Ok((read_half, write_half)) => {
-                        if let Some(read_half) = connection.read_half.take() {
-                            drop(read_half);
+                    Ok(tcp_stream) => {
+                        if let Some(local_tcp_connection) = connection.local_tcp_connection.take() {
+                            drop(local_tcp_connection);
                         }
 
-                        if let Some(write_half) = connection.write_half.take() {
-                            drop(write_half);
-                        }
-                        
-                        connection.read_half = Some(read_half);
-                        connection.write_half = Some(write_half);
+                        let mut tcp_connection = TcpConnection::new(tcp_stream, connection.name, NetworkSide::Client);
+
+                        tcp_connection.start_listen_server(connection.runtime.as_ref().unwrap(),Arc::clone(&connection.cancel_token));
+
+                        connection.local_tcp_connection = Some(tcp_connection);
                     }
                     Err(_) => {
                         continue
@@ -58,11 +60,16 @@ pub fn restart_connection(
     for (_,connection) in client_connections.0.iter_mut() {
         match connection {
             ClientConnectionType::Tcp(connection) => {
-                match connection.connection_down_receiver.try_recv() {
-                    Ok(_) => {
-                        connection.cancel_connection()
+                match connection.local_tcp_connection.as_mut() {
+                    Some(local_tcp_connection) => {
+                        match local_tcp_connection.connection_down_receiver.try_recv() {
+                            Ok(_) => {
+                                connection.cancel_connection()
+                            }
+                            Err(_) => {}
+                        }
                     }
-                    Err(_) => {
+                    None => {
                         continue
                     }
                 }

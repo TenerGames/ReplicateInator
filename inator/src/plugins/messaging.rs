@@ -8,10 +8,10 @@ pub struct MessagingPlugin {
 
 impl Plugin for MessagingPlugin {
     fn build(&self, app: &mut App) {
-        if self.network_side == NetworkSide::Client {
-            app.insert_resource(ClientConnections::new());
-        }else{
-            app.insert_resource(ServerConnections::new());
+        match self.network_side{
+            NetworkSide::Client => app.insert_resource(ClientConnections::new()),
+            NetwrokSide::Server => app.insert_resource(ServerConnections::new()),
+            _ => unreachable!()
         }
     }
 }

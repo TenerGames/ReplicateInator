@@ -13,11 +13,17 @@ pub enum NetworkSide{
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use bevy::{MinimalPlugins};
+    use bevy::prelude::App;
+    use crate::plugins::client::ClientPlugin;
+    use crate::plugins::server::ServerPlugin;
 
     #[test]
     fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+        //Testing server and client
+
+        App::new().add_plugins((MinimalPlugins,ServerPlugin)).run();
+
+        App::new().add_plugins((MinimalPlugins,ClientPlugin)).run();
     }
 }

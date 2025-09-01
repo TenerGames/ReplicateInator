@@ -46,6 +46,7 @@ pub enum ClientConnectionType{
 pub trait Connection {
     fn start_connection(&mut self);
     fn can_start(&self) -> bool;
+    fn cancel_connection(&mut self);
     fn disconnect(&mut self);
 }
 

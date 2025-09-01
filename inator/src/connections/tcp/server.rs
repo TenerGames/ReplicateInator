@@ -68,6 +68,8 @@ impl Connection for ServerTcpConnection {
         self.started = true;
 
         self.runtime.as_ref().unwrap().spawn(async move {
+            dropped.store(false, Ordering::SeqCst);
+            
             let tcp_listener = loop {
                 match TcpListener::bind(address).await {
                     Ok(listener) => break Arc::new(listener),
@@ -87,6 +89,8 @@ impl Connection for ServerTcpConnection {
                 drop(tcp_listener);
                 return;
             }
+
+            println!("Server tcp binded successfully!");
 
             connection_up_sender.send(Arc::clone(&tcp_listener)).unwrap();
 
@@ -169,6 +173,12 @@ impl Connection for ServerTcpConnection {
     
     fn can_start(&self) -> bool {
         !&self.started
+    }
+
+    fn cancel_connection(&mut self) {
+        self.cancel_token.cancel();
+        self.dropped.store(true,Ordering::SeqCst);
+        self.started = false;
     }
 
     fn disconnect(&mut self) {

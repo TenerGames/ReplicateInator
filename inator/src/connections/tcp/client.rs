@@ -12,7 +12,7 @@ pub struct ClientTcpSettings {
     pub address: IpAddr,
     pub port: u16,
     pub bytes: BytesOptions,
-    pub order: OrderOptions,
+    pub order: OrderOptions
 }
 pub struct ClientTcpConnection {
     pub settings: ClientTcpSettings,
@@ -23,7 +23,7 @@ pub struct ClientTcpConnection {
     pub local_tcp_connection: Option<TcpConnection>,
     pub cancel_token: Arc<CancellationToken>,
     pub connection_up_sender: Arc<UnboundedSender<TcpStream>>,
-    pub connection_up_receiver:  UnboundedReceiver<TcpStream>,
+    pub connection_up_receiver:  UnboundedReceiver<TcpStream>
 }
 
 impl Default for ClientTcpSettings {

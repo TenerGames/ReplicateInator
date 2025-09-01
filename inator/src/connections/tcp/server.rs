@@ -1,4 +1,5 @@
-﻿use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+﻿use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::net::{TcpListener, TcpStream};
@@ -6,7 +7,9 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 use crate::connections::{BytesOptions, Connection, OrderOptions};
+use crate::connections::tcp::connection::TcpConnection;
 
 pub struct ServerTcpSettings {
     pub address: IpAddr,
@@ -31,6 +34,7 @@ pub struct ServerTcpConnection{
     pub connection_up_receiver: UnboundedReceiver<Arc<TcpListener>>,
     pub client_connected_sender: Arc<UnboundedSender<(TcpStream,SocketAddr)>>,
     pub client_connected_receiver: UnboundedReceiver<(TcpStream,SocketAddr)>,
+    pub connections: HashMap<Uuid,TcpConnection>
 }
 
 impl Default for ServerTcpSettings {
@@ -65,7 +69,8 @@ impl ServerTcpConnection {
             connection_up_sender: Arc::new(connection_up_sender),
             connection_up_receiver,
             client_connected_sender: Arc::new(client_connected_sender),
-            client_connected_receiver
+            client_connected_receiver,
+            connections: HashMap::new()
         }
     }
 }

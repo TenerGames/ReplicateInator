@@ -2,6 +2,7 @@
 name = "inator"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
 
 [dependencies]
 bevy = { workspace = true }
@@ -10,3 +11,5 @@ tokio-util = { workspace = true }
 typetag = { workspace = true }
 serde = { workspace = true }
 bincode = { workspace = true }
+uuid = { workspace = true }
+message_derive = { path = "../message_derive" }

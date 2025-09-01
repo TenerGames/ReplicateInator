@@ -2,6 +2,7 @@
 name = "message_derive"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
 
 [lib]
 proc-macro = true

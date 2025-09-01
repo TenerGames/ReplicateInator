@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["inator"]
+members = ["inator","message_derive"]
 
 [workspace.package]
 version = "0.1.0"
@@ -30,3 +30,4 @@ tokio-util = { version = "0.7.16" }
 typetag = { version = "0.2.20" }
 serde = { version = "1.0.219", features = ["derive"] }
 bincode = { version = "2.0.1", features = ["serde"] }
+uuid = { version = "1.18.0" }

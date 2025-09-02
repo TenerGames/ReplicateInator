@@ -3,11 +3,11 @@ use std::sync::Arc;
 use bevy::app::App;
 use bevy::prelude::{Commands, EventWriter, First, IntoScheduleConfigs, Last, Plugin, ResMut, Update, World};
 use uuid::Uuid;
-use crate::connections::{Connection, Connections, ServerConnectionType, ServerConnections};
+use crate::connections::{ClientConnections, Connection, Connections, ConnectionsType, ServerConnectionType, ServerConnections};
 use crate::connections::tcp::connection::TcpConnection;
 use crate::NetworkSide;
-use crate::plugins::{ClientConnected, ConnectedMessage};
-use crate::systems::messaging::{register_message_type, MessageType, DISPATCHERS};
+use crate::plugins::{ClientConnected, ClientDiconnected, ConnectedMessage};
+use crate::systems::messaging::{register_message_type, DISPATCHERS};
 
 pub struct ServerPlugin;
 
@@ -17,6 +17,7 @@ impl Plugin for ServerPlugin {
 
         app.insert_resource(ServerConnections::new());
         app.add_event::<ClientConnected>();
+        app.add_event::<ClientDiconnected>();
         app.add_systems(First,(start_connections,check_client_connections_down).chain());
         app.add_systems(Update,(check_clients_connected,check_clients_messages).chain());
         app.add_systems(Last,(check_connection_up,start_listening_clients,restart_connection).chain());
@@ -37,6 +38,7 @@ pub fn start_connections(
 
 pub fn check_client_connections_down(
     mut server_connections: ResMut<ServerConnections>,
+    mut client_diconnected: EventWriter<ClientDiconnected>,
 ){
     for (_,connection) in server_connections.0.iter_mut() {
         match connection {
@@ -47,6 +49,8 @@ pub fn check_client_connections_down(
                     match client_connection.connection_down_receiver.try_recv() {
                         Ok(_) => {
                             client_connection.listening = false;
+
+                            client_diconnected.write(ClientDiconnected(*uuid, ConnectionsType::Tcp, connection.name));
 
                             remove_list.push(*uuid);
                         }
@@ -73,11 +77,11 @@ pub fn check_clients_connected(
             ServerConnectionType::Tcp(connection) => {
                 match connection.client_connected_receiver.try_recv() {
                     Ok((tcp_stream,addr)) => {
-                        client_connected_event.write(ClientConnected(addr,connection.name));
-
                         let settings = &connection.settings;
                         let mut tcp_connection = TcpConnection::new(tcp_stream, connection.name, NetworkSide::Server, Arc::clone(&connection.cancel_token),settings.bytes,settings.order);
                         let current_uuid = tcp_connection.uuid.unwrap();
+
+                        client_connected_event.write(ClientConnected(current_uuid,ConnectionsType::Tcp,connection.name));
                         
                         tcp_connection.send_message(Box::new(ConnectedMessage{
                             uuid: current_uuid
@@ -113,7 +117,7 @@ pub fn check_clients_messages(
                                 if let Some(dispatcher) = map.get(&type_id) {
                                     let boxed_any = message as Box<dyn Any>;
 
-                                    dispatcher(boxed_any, w, MessageType::Tcp, Some(uuid), &NetworkSide::Server, connection_name);
+                                    dispatcher(boxed_any, w, ConnectionsType::Tcp, Some(uuid), &NetworkSide::Server, connection_name);
                                 } else {
                                     println!("This message does not exist");
                                 }

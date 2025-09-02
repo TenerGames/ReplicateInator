@@ -56,6 +56,10 @@ pub enum ReadValue {
     F64(f64),
 }
 
+pub enum ConnectionsType{
+    Tcp
+}
+
 pub enum ServerConnectionType{
     Tcp(ServerTcpConnection)
 }

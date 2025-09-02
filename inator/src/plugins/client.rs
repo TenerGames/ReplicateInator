@@ -2,11 +2,11 @@
 use std::sync::Arc;
 use bevy::app::App;
 use bevy::prelude::{Commands, First, IntoScheduleConfigs, Last, Plugin, ResMut, Update, World};
-use crate::connections::{ClientConnectionType, ClientConnections, Connection, Connections};
+use crate::connections::{ClientConnectionType, ClientConnections, Connection, Connections, ConnectionsType};
 use crate::connections::tcp::connection::TcpConnection;
 use crate::NetworkSide;
 use crate::plugins::ConnectedMessage;
-use crate::systems::messaging::{register_message_type, MessageType, DISPATCHERS};
+use crate::systems::messaging::{register_message_type, DISPATCHERS};
 
 pub struct ClientPlugin;
 
@@ -59,7 +59,7 @@ pub fn check_new_messages(
                                     if let Some(dispatcher) = map.get(&type_id) {
                                         let boxed_any = message as Box<dyn Any>;
 
-                                        dispatcher(boxed_any, w, MessageType::Tcp, uuid, &NetworkSide::Client, connection_name);
+                                        dispatcher(boxed_any, w, ConnectionsType::Tcp, uuid, &NetworkSide::Client, connection_name);
                                     } else {
                                         println!("This message does not exist");
                                     }

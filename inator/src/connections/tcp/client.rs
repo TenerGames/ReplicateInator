@@ -3,19 +3,19 @@ use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use crate::connections::{BytesOptions, Connection, OrderOptions};
 
 pub struct ClientTcpSettings {
-    pub address: IpAddr,
-    pub port: u16,
-    pub bytes: BytesOptions,
-    pub order: OrderOptions,
-    pub max_connections: usize,
-    pub recuse_when_full: bool
+    pub(crate) address: IpAddr,
+    pub(crate) port: u16,
+    pub(crate) bytes: BytesOptions,
+    pub(crate) order: OrderOptions,
+    pub(crate) max_connections: usize,
+    pub(crate) recuse_when_full: bool
 }
 pub struct ClientTcpConnection {
-    pub settings: ClientTcpSettings,
-    pub name: &'static str,
-    pub started: bool,
-    pub read_half: Option<OwnedReadHalf>,
-    pub write_half: Option<OwnedWriteHalf>
+    pub(crate) settings: ClientTcpSettings,
+    pub(crate) name: &'static str,
+    pub(crate) started: bool,
+    pub(crate) read_half: Option<OwnedReadHalf>,
+    pub(crate) write_half: Option<OwnedWriteHalf>
 }
 
 impl ClientTcpConnection {

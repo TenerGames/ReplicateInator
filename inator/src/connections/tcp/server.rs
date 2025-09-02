@@ -9,26 +9,26 @@ use tokio_util::sync::CancellationToken;
 use crate::connections::{BytesOptions, Connection, OrderOptions};
 
 pub struct ServerTcpSettings {
-    pub address: IpAddr,
-    pub port: u16,
-    pub bytes: BytesOptions,
-    pub order: OrderOptions,
-    pub max_connections: usize,
-    pub recuse_when_full: bool
+    pub(crate) address: IpAddr,
+    pub(crate) port: u16,
+    pub(crate) bytes: BytesOptions,
+    pub(crate) order: OrderOptions,
+    pub(crate) max_connections: usize,
+    pub(crate) recuse_when_full: bool
 }
 
 pub struct ServerTcpConnection{
-    pub settings: ServerTcpSettings,
-    pub name: &'static str,
-    pub listener: Option<Arc<TcpListener>>,
-    pub started: bool,
-    pub runtime: Option<Runtime>,
-    pub dropped: Arc<AtomicBool>,
-    pub cancel_token: Arc<CancellationToken>,
-    pub connection_down_sender: Arc<UnboundedSender<()>>,
-    pub connection_down_receiver: UnboundedReceiver<()>,
-    pub connection_up_sender: Arc<UnboundedSender<Arc<TcpListener>>>,
-    pub connection_up_receiver: UnboundedReceiver<Arc<TcpListener>>,
+    pub(crate) settings: ServerTcpSettings,
+    pub(crate) name: &'static str,
+    pub(crate) listener: Option<Arc<TcpListener>>,
+    pub(crate) started: bool,
+    pub(crate) runtime: Option<Runtime>,
+    pub(crate) dropped: Arc<AtomicBool>,
+    pub(crate) cancel_token: Arc<CancellationToken>,
+    pub(crate) connection_down_sender: Arc<UnboundedSender<()>>,
+    pub(crate) connection_down_receiver: UnboundedReceiver<()>,
+    pub(crate) connection_up_sender: Arc<UnboundedSender<Arc<TcpListener>>>,
+    pub(crate) connection_up_receiver: UnboundedReceiver<Arc<TcpListener>>,
 }
 
 impl ServerTcpConnection {

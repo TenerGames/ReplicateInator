@@ -1,12 +1,15 @@
-﻿use std::net::{IpAddr};
+﻿use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 use crate::connections::{BytesOptions, Connection, OrderOptions};
+use crate::connections::tcp::connection::TcpConnection;
 
 pub struct ServerTcpSettings {
     pub(crate) address: IpAddr,
@@ -29,12 +32,29 @@ pub struct ServerTcpConnection{
     pub(crate) connection_down_receiver: UnboundedReceiver<()>,
     pub(crate) connection_up_sender: Arc<UnboundedSender<Arc<TcpListener>>>,
     pub(crate) connection_up_receiver: UnboundedReceiver<Arc<TcpListener>>,
+    pub(crate) client_connected_sender: Arc<UnboundedSender<(TcpStream,SocketAddr)>>,
+    pub(crate) client_connected_receiver: UnboundedReceiver<(TcpStream,SocketAddr)>,
+    pub(crate) connections: HashMap<Uuid,TcpConnection>
+}
+
+impl Default for ServerTcpSettings {
+    fn default() -> Self {
+        ServerTcpSettings {
+            address: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            port: 8080,
+            bytes: BytesOptions::U32,
+            order: OrderOptions::LittleEndian,
+            max_connections: 0,
+            recuse_when_full: false
+        }
+    }
 }
 
 impl ServerTcpConnection {
     pub fn new(settings: ServerTcpSettings, name: &'static str) -> ServerTcpConnection {
         let (connection_down_sender,connection_down_receiver) = unbounded_channel::<()>();
         let (connection_up_sender, connection_up_receiver) = unbounded_channel::<Arc<TcpListener>>();
+        let (client_connected_sender, client_connected_receiver) = unbounded_channel::<(TcpStream,SocketAddr)>();
 
         ServerTcpConnection {
             settings,
@@ -47,7 +67,10 @@ impl ServerTcpConnection {
             connection_down_sender: Arc::new(connection_down_sender),
             connection_down_receiver,
             connection_up_sender: Arc::new(connection_up_sender),
-            connection_up_receiver
+            connection_up_receiver,
+            client_connected_sender: Arc::new(client_connected_sender),
+            client_connected_receiver,
+            connections: HashMap::new()
         }
     }
 }
@@ -63,11 +86,14 @@ impl Connection for ServerTcpConnection {
         let recuse_when_full = settings.recuse_when_full;
         let connection_up_sender = Arc::clone(&self.connection_up_sender);
         let connection_down_sender = Arc::clone(&self.connection_down_sender);
+        let client_connected_sender = Arc::clone(&self.client_connected_sender);
         let cancel_token = Arc::clone(&self.cancel_token);
 
         self.started = true;
 
         self.runtime.as_ref().unwrap().spawn(async move {
+            dropped.store(false, Ordering::SeqCst);
+
             let tcp_listener = loop {
                 match TcpListener::bind(address).await {
                     Ok(listener) => break Arc::new(listener),
@@ -88,6 +114,8 @@ impl Connection for ServerTcpConnection {
                 return;
             }
 
+            println!("Server tcp binded successfully!");
+
             connection_up_sender.send(Arc::clone(&tcp_listener)).unwrap();
 
             let semaphore: Option<Semaphore> = if max_connections > 0 { Some(Semaphore::new(max_connections)) } else { None };
@@ -106,6 +134,9 @@ impl Connection for ServerTcpConnection {
                                             match semaphore.try_acquire() {
                                                 Ok(permit) => {
                                                     println!("Accepted connection from {}", addr);
+
+                                                    client_connected_sender.send((stream,addr)).unwrap();
+
                                                     drop(permit);
                                                 },
                                                 Err(_) => {
@@ -119,6 +150,8 @@ impl Connection for ServerTcpConnection {
                                                 Ok(permit) => {
                                                     println!("Accepted connection from {}", addr);
 
+                                                    client_connected_sender.send((stream,addr)).unwrap();
+
                                                     drop(permit);
                                                 },
                                                 Err(_) => {
@@ -129,6 +162,8 @@ impl Connection for ServerTcpConnection {
                                     },
                                     None => {
                                         println!("Accepted connection from {}", addr);
+
+                                        client_connected_sender.send((stream,addr)).unwrap();
                                     }
                                 }
                             },
@@ -166,9 +201,19 @@ impl Connection for ServerTcpConnection {
             }
         });
     }
-    
+
     fn can_start(&self) -> bool {
         !&self.started
+    }
+
+    fn cancel_connection(&mut self) {
+        if let Some(listener) = self.listener.take() {
+            drop(listener);
+        }
+
+        self.cancel_token.cancel();
+        self.dropped.store(true,Ordering::SeqCst);
+        self.started = false;
     }
 
     fn disconnect(&mut self) {

@@ -24,7 +24,6 @@ pub trait MessageTrait: Send + Sync + Any {
 pub struct MessageReceivedFromServer<T: MessageTrait>{
     pub message: T,
     pub message_type: MessageType,
-    pub sender: Option<Uuid>,
     pub connection_name: &'static str
 }
 
@@ -54,7 +53,6 @@ macro_rules! register_message_type {
                     world.send_event(MessageReceivedFromServer {
                         message: *msg,
                         message_type,
-                        sender: uuid,
                         connection_name,
                     });
                 } else {

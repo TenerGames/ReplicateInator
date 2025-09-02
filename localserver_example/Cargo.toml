@@ -1,0 +1,10 @@
+[package]
+name = "localserver_example"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+tokio = { workspace = true }
+inator = { path = "../inator" }

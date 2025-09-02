@@ -37,6 +37,17 @@ impl Default for ClientTcpSettings {
     }
 }
 
+impl ClientTcpSettings {
+    pub fn new(address: IpAddr, port: u16, bytes: BytesOptions, order: OrderOptions) -> Self {
+        Self {
+            address,
+            port,
+            bytes,
+            order
+        }
+    }
+}
+
 impl ClientTcpConnection {
     pub fn new(settings: ClientTcpSettings, name: &'static str) -> ClientTcpConnection {
         let (connection_up_sender, connection_up_receiver) = unbounded_channel::<TcpStream>();

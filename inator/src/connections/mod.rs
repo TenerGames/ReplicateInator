@@ -78,6 +78,18 @@ pub trait Connections {
     fn new_client_tcp_connection(&mut self, settings: ClientTcpSettings, name: &'static str);
 }
 
+impl Default for BytesOptions{
+    fn default() -> BytesOptions{
+        BytesOptions::U32
+    }
+}
+
+impl Default for OrderOptions{
+    fn default() -> OrderOptions{
+        OrderOptions::LittleEndian
+    }
+}
+
 impl Connections for ClientConnections {
     fn new() -> ClientConnections {
         ClientConnections(HashMap::new())

@@ -50,6 +50,19 @@ impl Default for ServerTcpSettings {
     }
 }
 
+impl ServerTcpSettings {
+    pub fn new(address: IpAddr, port: u16, bytes: BytesOptions, order: OrderOptions, max_connections: usize, recuse_when_full: bool) -> Self {
+        Self {
+            address,
+            port,
+            bytes,
+            order,
+            max_connections,
+            recuse_when_full
+        }
+    }
+}
+
 impl ServerTcpConnection {
     pub fn new(settings: ServerTcpSettings, name: &'static str) -> ServerTcpConnection {
         let (connection_down_sender,connection_down_receiver) = unbounded_channel::<()>();

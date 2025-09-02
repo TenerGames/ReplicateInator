@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["inator","message_derive"]
+members = ["inator", "message_derive", "localserver_example", "dedicatedserver_example/client", "dedicatedserver_example/server"]
 
 [workspace.package]
 version = "0.1.0"

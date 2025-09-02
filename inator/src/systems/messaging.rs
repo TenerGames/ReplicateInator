@@ -7,13 +7,10 @@ use bevy::prelude::{Event, World};
 use bincode::config::standard;
 use typetag::__private::once_cell::sync::Lazy;
 use uuid::Uuid;
+use crate::connections::ConnectionsType;
 use crate::NetworkSide;
 
 pub struct MessagingPlugin;
-
-pub enum MessageType{
-    Tcp
-}
 
 #[typetag::serde]
 pub trait MessageTrait: Send + Sync + Any {
@@ -23,19 +20,19 @@ pub trait MessageTrait: Send + Sync + Any {
 #[derive(Event)]
 pub struct MessageReceivedFromServer<T: MessageTrait>{
     pub message: T,
-    pub message_type: MessageType,
+    pub message_type: ConnectionsType,
     pub connection_name: &'static str
 }
 
 #[derive(Event)]
 pub struct MessageReceivedFromClient<T: MessageTrait>{
     pub message: T,
-    pub message_type: MessageType,
+    pub message_type: ConnectionsType,
     pub sender: Option<Uuid>,
     pub connection_name: &'static str
 }
 
-pub type DispatcherFn = Box<dyn Fn(Box<dyn Any>, &mut World, MessageType, Option<Uuid>, &NetworkSide, &'static str) + Send + Sync>;
+pub type DispatcherFn = Box<dyn Fn(Box<dyn Any>, &mut World, ConnectionsType, Option<Uuid>, &NetworkSide, &'static str) + Send + Sync>;
 
 pub static DISPATCHERS: Lazy<Mutex<HashMap<TypeId, DispatcherFn>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));

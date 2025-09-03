@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bevy::app::App;
 use bevy::prelude::{Commands, EventWriter, First, IntoScheduleConfigs, Last, Plugin, ResMut, Update, World};
 use uuid::Uuid;
-use crate::connections::{ClientConnections, Connection, Connections, ConnectionsType, ServerConnectionType, ServerConnections};
+use crate::connections::{Connection, Connections, ConnectionsType, ServerConnectionType, ServerConnections};
 use crate::connections::tcp::connection::TcpConnection;
 use crate::NetworkSide;
 use crate::plugins::{ClientConnected, ClientDiconnected, ConnectedMessage};
@@ -76,7 +76,7 @@ pub fn check_clients_connected(
         match connection {
             ServerConnectionType::Tcp(connection) => {
                 match connection.client_connected_receiver.try_recv() {
-                    Ok((tcp_stream,addr)) => {
+                    Ok((tcp_stream,_)) => {
                         let settings = &connection.settings;
                         let mut tcp_connection = TcpConnection::new(tcp_stream, connection.name, NetworkSide::Server, Arc::clone(&connection.cancel_token),settings.bytes,settings.order);
                         let current_uuid = tcp_connection.uuid.unwrap();

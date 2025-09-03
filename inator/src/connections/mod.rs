@@ -1,6 +1,7 @@
 ﻿use std::collections::HashMap;
 use bevy::log::warn;
 use bevy::prelude::Resource;
+use serde::{Deserialize, Serialize};
 use crate::connections::tcp::client::{ClientTcpConnection, ClientTcpSettings};
 use crate::connections::tcp::server::{ServerTcpConnection, ServerTcpSettings};
 pub mod tcp;
@@ -56,6 +57,7 @@ pub enum ReadValue {
     F64(f64),
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum ConnectionsType{
     Tcp
 }

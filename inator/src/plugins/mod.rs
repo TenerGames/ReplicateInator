@@ -7,6 +7,7 @@ use crate::connections::ConnectionsType;
 
 pub mod client;
 pub mod server;
+pub mod replication;
 
 #[derive(Event)]
 pub struct ClientConnected(pub Uuid, pub ConnectionsType, pub &'static str);

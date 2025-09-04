@@ -1,4 +1,4 @@
-﻿use crate::systems::messaging::{register_message_type, MessageReceivedFromServer, MessageTrait};
+use crate::systems::messaging::{register_message_type, MessageReceivedFromServer, MessageTrait};
 use std::any::{TypeId};
 use std::collections::HashMap;
 use bevy::prelude::{Added, App, Changed, Commands, Component, Entity, EventReader, Plugin, Query, Reflect, Res, ResMut, Resource, Update};
@@ -9,8 +9,8 @@ use message_derive::Message;
 use crate::connections::{ClientConnections, ServerConnectionType, ServerConnections};
 use crate::NetworkSide;
 
-pub trait RegisterReplicatedComponent{
-    fn register_replicated_component<T: Component + Reflect + Clone + GetTypeRegistration + Serialize>(&mut self);
+pub trait RegisterReplicatedComponent: Component + Reflect + Clone + GetTypeRegistration + Serialize{
+    fn register_replicated_component(&mut self);
 }
 
 pub struct ReplicatingPlugin {
@@ -43,14 +43,13 @@ pub struct ReplicatedMessageClient {
 pub struct ReplicateRegistry(HashMap<String, TypeId>);
 
 impl RegisterReplicatedComponent for App{
-    fn register_replicated_component<T: Component + Reflect + Clone + GetTypeRegistration + Serialize>(&mut self) {
-        self.register_type::<T>();
-
+    fn register_replicated_component(&mut self) {
+        self.register_type();
         let mut registry = self.world_mut().resource_mut::<ReplicateRegistry>();
 
-        registry.0.insert(std::any::type_name::<T>().parse().unwrap(),TypeId::of::<T>());
+        registry.0.insert(std::any::type_name().parse().unwrap(),TypeId::of());
 
-        self.add_systems(Update,detect_components_changed::<T>);
+        self.add_systems(Update,detect_components_changed);
     }
 }
 

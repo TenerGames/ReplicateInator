@@ -1,6 +1,7 @@
 ﻿use std::collections::HashMap;
 use bevy::log::warn;
 use bevy::prelude::Resource;
+use serde::{Deserialize, Serialize};
 use crate::connections::tcp::client::{ClientTcpConnection, ClientTcpSettings};
 use crate::connections::tcp::server::{ServerTcpConnection, ServerTcpSettings};
 pub mod tcp;
@@ -56,6 +57,11 @@ pub enum ReadValue {
     F64(f64),
 }
 
+#[derive(Serialize, Deserialize)]
+pub enum ConnectionsType{
+    Tcp
+}
+
 pub enum ServerConnectionType{
     Tcp(ServerTcpConnection)
 }
@@ -76,6 +82,18 @@ pub trait Connections {
     fn remove_connection(&mut self, name: &str);
     fn new_server_tcp_connection(&mut self, settings: ServerTcpSettings, name: &'static str);
     fn new_client_tcp_connection(&mut self, settings: ClientTcpSettings, name: &'static str);
+}
+
+impl Default for BytesOptions{
+    fn default() -> BytesOptions{
+        BytesOptions::U32
+    }
+}
+
+impl Default for OrderOptions{
+    fn default() -> OrderOptions{
+        OrderOptions::LittleEndian
+    }
 }
 
 impl Connections for ClientConnections {

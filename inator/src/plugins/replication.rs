@@ -1,4 +1,4 @@
-﻿use crate::systems::messaging::{register_message_type, MessageReceivedFromServer, MessageTrait};
+use crate::systems::messaging::{register_message_type, MessageReceivedFromServer, MessageTrait};
 use std::any::{TypeId};
 use std::collections::HashMap;
 use bevy::prelude::{Added, App, Changed, Commands, Component, Entity, EventReader, Plugin, Query, Reflect, Res, ResMut, Resource, Update};

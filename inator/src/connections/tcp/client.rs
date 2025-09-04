@@ -9,21 +9,21 @@ use crate::connections::{BytesOptions, Connection, OrderOptions};
 use crate::connections::tcp::connection::TcpConnection;
 
 pub struct ClientTcpSettings {
-    pub address: IpAddr,
-    pub port: u16,
-    pub bytes: BytesOptions,
-    pub order: OrderOptions
+    pub(crate) address: IpAddr,
+    pub(crate) port: u16,
+    pub(crate) bytes: BytesOptions,
+    pub(crate) order: OrderOptions
 }
 pub struct ClientTcpConnection {
-    pub settings: ClientTcpSettings,
-    pub name: &'static str,
-    pub started: bool,
-    pub runtime: Option<Runtime>,
-    pub dropped: Arc<AtomicBool>,
-    pub local_tcp_connection: Option<TcpConnection>,
-    pub cancel_token: Arc<CancellationToken>,
-    pub connection_up_sender: Arc<UnboundedSender<TcpStream>>,
-    pub connection_up_receiver:  UnboundedReceiver<TcpStream>
+    pub(crate) settings: ClientTcpSettings,
+    pub(crate) name: &'static str,
+    pub(crate) started: bool,
+    pub(crate) runtime: Option<Runtime>,
+    pub(crate) dropped: Arc<AtomicBool>,
+    pub(crate) local_tcp_connection: Option<TcpConnection>,
+    pub(crate) cancel_token: Arc<CancellationToken>,
+    pub(crate) connection_up_sender: Arc<UnboundedSender<TcpStream>>,
+    pub(crate) connection_up_receiver:  UnboundedReceiver<TcpStream>
 }
 
 impl Default for ClientTcpSettings {
@@ -33,6 +33,17 @@ impl Default for ClientTcpSettings {
             port: 8080,
             bytes: BytesOptions::U32,
             order: OrderOptions::LittleEndian
+        }
+    }
+}
+
+impl ClientTcpSettings {
+    pub fn new(address: IpAddr, port: u16, bytes: BytesOptions, order: OrderOptions) -> Self {
+        Self {
+            address,
+            port,
+            bytes,
+            order
         }
     }
 }

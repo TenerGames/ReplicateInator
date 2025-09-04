@@ -1,7 +1,11 @@
-﻿use std::net::SocketAddr;
+﻿use std::any::type_name;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use bevy::prelude::{Component, Entity, Reflect};
+use bevy::reflect::GetTypeRegistration;
 use bincode::config::standard;
 use bincode::serde::encode_to_vec;
+use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
@@ -11,8 +15,9 @@ use tokio::sync::{Mutex};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use crate::connections::{BytesOptions, OrderOptions};
-use crate::connections::tcp::reader_writer::{read_from_settings, value_to_bytes, write_from_settings};
+use crate::connections::tcp::reader_writer::{read_from_settings, read_value_to_usize, value_from_number, write_from_settings};
 use crate::NetworkSide;
+use crate::plugins::replication::{ReplicatedMessageServer};
 use crate::systems::messaging::{deserialize_message, MessageTrait};
 
 pub struct TcpConnection {
@@ -28,7 +33,15 @@ pub struct TcpConnection {
     pub message_received_sender: Arc<UnboundedSender<Box<dyn MessageTrait>>>,
     pub message_received_receiver: UnboundedReceiver<Box<dyn MessageTrait>>,
     pub bytes: BytesOptions,
-    pub order: OrderOptions
+    pub order: OrderOptions,
+    pub listening: bool,
+}
+
+impl Drop for TcpConnection {
+    fn drop(&mut self) {
+        drop(self.read_half.take());
+        drop(self.write_half.take());
+    }
 }
 
 impl TcpConnection {
@@ -53,13 +66,12 @@ impl TcpConnection {
             message_received_sender: Arc::new(message_received_sender),
             message_received_receiver,
             bytes,
-            order
+            order,
+            listening: false
         }
     }
 
-    pub fn start_listen_server(&mut self, runtime: &Runtime) {
-        assert!(self.network_side == NetworkSide::Server,"You can just listen the server from client");
-
+    pub fn start_listening(&mut self, runtime: &Runtime) {
         let read_half = match &self.read_half {
             Some(read_half) => Arc::clone(read_half),
             None => return,
@@ -70,89 +82,146 @@ impl TcpConnection {
         let bytes_options = self.bytes;
         let order_options = self.order;
         let cancellation_token = Arc::clone(&self.cancellation_token);
+        let network_side = self.network_side;
+
+        self.listening = true;
 
         runtime.spawn(async move {
             loop {
                 tokio::select! {
-                    _ = cancellation_token.cancelled() => {
-                        break;
-                    },
+                    _ = cancellation_token.cancelled() => break,
+
                     mut guard = read_half.lock() => {
-                        match read_from_settings(&mut guard, &bytes_options, &order_options).await {
-                            Ok(read_value) => {
-                                let mut buf = value_to_bytes(&read_value, &order_options);
+                        let size_value = match read_from_settings(&mut guard, &bytes_options, &order_options).await {
+                            Ok(v) => v,
 
-                                match guard.read_exact(&mut buf).await {
-                                    Ok(_) => {
-                                        if let Some(message) = deserialize_message(&buf) {
-                                            message_received_sender.send(message).unwrap();
-                                        } else {
-                                            println!("Mensage not registered or failed to deserialize message");
-                                        }
-                                    },
-                                    Err(e) => {
-                                        eprintln!("Error on read: {:?}", e);
-
-                                        match e.kind() {
-                                            std::io::ErrorKind::ConnectionAborted => {
-
-                                                println!("Connection aborted (network down or aborted by OS)");
-
-                                                connection_down_sender.send(()).unwrap();
-
-                                                break;
-                                            },
-                                            std::io::ErrorKind::Other => {
-
-                                                println!("Connection was probably closed manually");
-
-                                                connection_down_sender.send(()).unwrap();
-
-                                                break;
-                                            },
-
-                                            _ => {
-
-                                                println!("Unexpected error: {:?}", e.kind());
-                                            }
-
-                                        }
-                                    }
-                                }
-                            },
                             Err(e) => {
-                                eprintln!("Error on read: {:?}", e);
+                                eprintln!("Failed to read size: {:?}", e);
+                                eprintln!("From {:?}", network_side);
 
                                 match e.kind() {
                                     std::io::ErrorKind::ConnectionAborted => {
-                                         println!("Connection aborted (network down or aborted by OS)");
 
-                                         connection_down_sender.send(()).unwrap();
+                                        println!("Connection aborted (network down or aborted by OS)");
 
-                                         break;
+                                        connection_down_sender.send(()).unwrap();
+
+                                        break;
                                     },
                                     std::io::ErrorKind::Other => {
-                                         println!("Connection was probably closed manually");
+                                        println!("Connection was probably closed manually");
 
-                                         connection_down_sender.send(()).unwrap();
+                                        connection_down_sender.send(()).unwrap();
 
-                                         break;
+                                        break;
                                     },
+
                                     _ => {
                                         println!("Unexpected error: {:?}", e.kind());
                                     }
                                 }
+
+                                break;
                             }
+                        };
+
+                        let size = read_value_to_usize(size_value);
+
+                        let mut buf = vec![0u8; size];
+
+                        if let Err(e) = guard.read_exact(&mut buf).await {
+                            eprintln!("Failed to read size: {:?}", e);
+                            eprintln!("From {:?}", network_side);
+
+                            match e.kind() {
+
+                                std::io::ErrorKind::ConnectionAborted => {
+
+                                    println!("Connection aborted (network down or aborted by OS)");
+
+                                    connection_down_sender.send(()).unwrap();
+
+
+                                    break;
+                                },
+
+                                std::io::ErrorKind::Other => {
+
+                                    println!("Connection was probably closed manually");
+
+                                    connection_down_sender.send(()).unwrap();
+
+
+                                    break;
+                                },
+
+                                _ => {
+                                    println!("Unexpected error: {:?}", e.kind());
+                                }
+                            }
+                        }
+
+                        if let Some(message) = deserialize_message(&buf) {
+                            message_received_sender.send(message).unwrap();
+                        } else {
+                            eprintln!("Message not registered or failed to deserialize client");
                         }
                     }
                 }
             }
         });
     }
+    
+    pub fn replicate_entity<T: Component + Reflect + Serialize>(&mut self, entity: Entity, runtime: &Runtime, component: T, first_replication: bool) {
+        let write_half = match &self.write_half {
+            Some(write_half) => Arc::clone(write_half),
+            None => return,
+        };
 
-    pub fn send_client_message(&mut self, message: Box<dyn MessageTrait>, runtime: &Runtime) {
-        assert!(self.network_side == NetworkSide::Client,"You can just send a client message on server");
+        let bytes_options = self.bytes;
+        let order_options = self.order;
+        let config = standard();
+        let encoded: Vec<u8>;
+        let encoded_data = encode_to_vec(&component, config).unwrap();
+        let network_side = self.network_side;
+        
+        if self.network_side == NetworkSide::Client {
+            let message = ReplicatedMessageServer{
+                entity_ref: entity,
+                component_name: type_name::<T>().parse().unwrap(),
+                component_data: encoded_data,
+                first_replication
+            };
+            
+            encoded = encode_to_vec(&message, config).unwrap();
+        }else {
+            todo!()
+        }
 
+        let message_size = encoded.len();
+
+        runtime.spawn(async move {
+            let mut guard = write_half.lock().await;
+
+            let size_value = value_from_number(message_size as f64, bytes_options);
+
+            if let Err(e) = write_from_settings(&mut guard, &size_value, &order_options).await {
+                eprintln!("Replicating failed: {:?}", e);
+                eprintln!("From {:?}", network_side);
+                return;
+            }
+
+            if let Err(e) = guard.write_all(&encoded).await {
+                eprintln!("Replicating failed: {:?}", e);
+                eprintln!("From {:?}", network_side);
+                return;
+            }
+
+            println!("Message sent for client");
+        });
+    }
+
+    pub fn send_message(&mut self, message: Box<dyn MessageTrait>, runtime: &Runtime){
         let write_half = match &self.write_half {
             Some(write_half) => Arc::clone(write_half),
             None => return,
@@ -162,25 +231,27 @@ impl TcpConnection {
         let order_options = self.order;
         let config = standard();
         let encoded = encode_to_vec(&message, config).unwrap();
+        let message_size = encoded.len();
+        let network_side = self.network_side;
 
         runtime.spawn(async move {
             let mut guard = write_half.lock().await;
 
-            match write_from_settings(&mut guard,&encoded,&bytes_options,&order_options).await {
-                Ok(_) => {
-                    match guard.write_all(&encoded).await {
-                        Ok(_) => {
-                            println!("Message sent for client")
-                        },
-                        Err(e) => {
-                            println!("Error on send: {:?}", e);
-                        }
-                    }
-                }
-                Err(_) => {
+            let size_value = value_from_number(message_size as f64, bytes_options);
 
-                }
+            if let Err(e) = write_from_settings(&mut guard, &size_value, &order_options).await {
+                eprintln!("Failed to send size: {:?}", e);
+                eprintln!("From {:?}", network_side);
+                return;
             }
+
+            if let Err(e) = guard.write_all(&encoded).await {
+                eprintln!("Failed to send message: {:?}", e);
+                eprintln!("From {:?}", network_side);
+                return;
+            }
+
+            println!("Message sent for client");
         });
     }
 }

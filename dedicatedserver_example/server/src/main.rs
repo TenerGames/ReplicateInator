@@ -1,7 +1,7 @@
-use bevy::app::{App, Startup};
+use bevy::app::{App, Startup, Update};
 use bevy::asset::uuid;
 use bevy::DefaultPlugins;
-use bevy::prelude::{Commands, IntoScheduleConfigs, ResMut};
+use bevy::prelude::{Added, Commands, Entity, IntoScheduleConfigs, Query, ResMut};
 use inator::connections::{ServerConnections};
 use inator::connections::tcp::server::ServerTcpSettings;
 use inator::NetworkSide;
@@ -18,15 +18,21 @@ pub fn create_connection(
 pub fn start_test(
     mut commands: Commands,
 ){
-    println!("new entity");
-    
     commands.spawn((
-        Health{value:0},
+        Health{value:10},
         Replicated{
             connection_name: "Lobby".to_string(),
             entity_ref: uuid::Uuid::new_v4().into_bytes(),
         }
     ));
+}
+
+pub fn test_health(
+    health_query: Query<(Entity, &Health), Added<Health>>,
+){
+    for (_, health) in health_query.iter() {
+        println!("Health on server is: {:?}", health.value);
+    }
 }
 
 fn main() {
@@ -36,5 +42,6 @@ fn main() {
         network_side: NetworkSide::Server,
     }))
         .add_systems(Startup,(create_connection,start_test).chain())
+        .add_systems(Update, test_health)
         .run();
 }

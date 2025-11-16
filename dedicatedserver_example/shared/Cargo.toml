@@ -1,10 +1,11 @@
 [package]
-name = "server"
+name = "shared"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-inator = { path = "../../inator" }
 bevy = { workspace = true }
-shared = { path = "../shared" }
+inator = { path = "../../inator" }
+serde = { workspace = true }
+bincode = { workspace = true }

@@ -85,7 +85,10 @@ pub fn deserialize_message(buf: &[u8]) -> Option<Box<dyn MessageTrait>> {
 pub fn register_message_type<T: MessageTrait>(app: &mut App, network_side: &NetworkSide){
     if network_side == &NetworkSide::Client {
         app.add_event::<MessageReceivedFromServer<T>>();
+    }else if network_side == &NetworkSide::Server {
+        app.add_event::<MessageReceivedFromClient<T>>();
     }else {
+        app.add_event::<MessageReceivedFromServer<T>>();
         app.add_event::<MessageReceivedFromClient<T>>();
     }
 

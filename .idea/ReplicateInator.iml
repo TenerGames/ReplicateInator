@@ -8,6 +8,7 @@
       <sourceFolder url="file://$MODULE_DIR$/dedicatedserver_example/client/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dedicatedserver_example/server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/localserver_example/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/dedicatedserver_example/shared/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

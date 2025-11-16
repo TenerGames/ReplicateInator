@@ -7,3 +7,4 @@ authors.workspace = true
 [dependencies]
 inator = { path = "../../inator" }
 bevy = { workspace = true }
+shared = { path = "../shared" }

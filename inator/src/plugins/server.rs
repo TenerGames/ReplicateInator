@@ -7,6 +7,7 @@ use crate::connections::{Connection, Connections, ConnectionsType, ServerConnect
 use crate::connections::tcp::connection::TcpConnection;
 use crate::NetworkSide;
 use crate::plugins::{ClientConnected, ClientDiconnected, ConnectedMessage};
+use crate::plugins::replication::{NewClientsToReplicate};
 use crate::systems::messaging::{register_message_type, DISPATCHERS};
 
 pub struct ServerPlugin;
@@ -42,15 +43,15 @@ pub fn check_client_connections_down(
 ){
     for (_,connection) in server_connections.0.iter_mut() {
         match connection {
-            ServerConnectionType::Tcp(connection) => {
+            ServerConnectionType::Tcp(server_connection) => {
                 let mut remove_list: Vec<Uuid> = Vec::new();
 
-                for (uuid,client_connection) in connection.connections.iter_mut()  {
+                for (uuid,client_connection) in server_connection.connections.iter_mut()  {
                     match client_connection.connection_down_receiver.try_recv() {
                         Ok(_) => {
                             client_connection.listening = false;
 
-                            client_diconnected.write(ClientDiconnected(*uuid, ConnectionsType::Tcp, connection.name));
+                            client_diconnected.write(ClientDiconnected(*uuid, ConnectionsType::Tcp, server_connection.name));
 
                             remove_list.push(*uuid);
                         }
@@ -61,7 +62,7 @@ pub fn check_client_connections_down(
                 }
 
                 for uuid in remove_list {
-                    connection.connections.remove(&uuid);
+                    server_connection.connections.remove(&uuid);
                 }
             }
         }
@@ -71,6 +72,7 @@ pub fn check_client_connections_down(
 pub fn check_clients_connected(
     mut server_connections: ResMut<ServerConnections>,
     mut client_connected_event: EventWriter<ClientConnected>,
+    mut new_clients_to_replicate: Option<ResMut<NewClientsToReplicate>>,
 ){
     for (_,connection) in server_connections.0.iter_mut() {
         match connection {
@@ -83,11 +85,15 @@ pub fn check_clients_connected(
 
                         client_connected_event.write(ClientConnected(current_uuid,ConnectionsType::Tcp,connection.name));
                         
-                        tcp_connection.send_message(Box::new(ConnectedMessage{
+                        tcp_connection.send_message(&ConnectedMessage{
                             uuid: current_uuid
-                        }),connection.runtime.as_ref().unwrap());
+                        },connection.runtime.as_ref().unwrap());
                         
                         connection.connections.insert(current_uuid,tcp_connection);
+                        
+                        if let Some(new_clients_to_replicate) = new_clients_to_replicate.as_mut() {
+                            new_clients_to_replicate.0.push(current_uuid);
+                        }
                     }
                     Err(_) => {
                         continue

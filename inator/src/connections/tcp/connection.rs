@@ -1,11 +1,7 @@
-﻿use std::any::type_name;
-use std::net::SocketAddr;
+﻿use std::net::SocketAddr;
 use std::sync::Arc;
-use bevy::prelude::{Component, Entity, Reflect};
-use bevy::reflect::GetTypeRegistration;
 use bincode::config::standard;
 use bincode::serde::encode_to_vec;
-use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
@@ -17,7 +13,6 @@ use uuid::Uuid;
 use crate::connections::{BytesOptions, OrderOptions};
 use crate::connections::tcp::reader_writer::{read_from_settings, read_value_to_usize, value_from_number, write_from_settings};
 use crate::NetworkSide;
-use crate::plugins::replication::{ReplicatedMessageServer};
 use crate::systems::messaging::{deserialize_message, MessageTrait};
 
 pub struct TcpConnection {
@@ -34,7 +29,7 @@ pub struct TcpConnection {
     pub message_received_receiver: UnboundedReceiver<Box<dyn MessageTrait>>,
     pub bytes: BytesOptions,
     pub order: OrderOptions,
-    pub listening: bool,
+    pub listening: bool
 }
 
 impl Drop for TcpConnection {
@@ -171,57 +166,8 @@ impl TcpConnection {
             }
         });
     }
-    
-    pub fn replicate_entity<T: Component + Reflect + Serialize>(&mut self, entity: Entity, runtime: &Runtime, component: T, first_replication: bool) {
-        let write_half = match &self.write_half {
-            Some(write_half) => Arc::clone(write_half),
-            None => return,
-        };
 
-        let bytes_options = self.bytes;
-        let order_options = self.order;
-        let config = standard();
-        let encoded: Vec<u8>;
-        let encoded_data = encode_to_vec(&component, config).unwrap();
-        let network_side = self.network_side;
-        
-        if self.network_side == NetworkSide::Client {
-            let message = ReplicatedMessageServer{
-                entity_ref: entity,
-                component_name: type_name::<T>().parse().unwrap(),
-                component_data: encoded_data,
-                first_replication
-            };
-            
-            encoded = encode_to_vec(&message, config).unwrap();
-        }else {
-            todo!()
-        }
-
-        let message_size = encoded.len();
-
-        runtime.spawn(async move {
-            let mut guard = write_half.lock().await;
-
-            let size_value = value_from_number(message_size as f64, bytes_options);
-
-            if let Err(e) = write_from_settings(&mut guard, &size_value, &order_options).await {
-                eprintln!("Replicating failed: {:?}", e);
-                eprintln!("From {:?}", network_side);
-                return;
-            }
-
-            if let Err(e) = guard.write_all(&encoded).await {
-                eprintln!("Replicating failed: {:?}", e);
-                eprintln!("From {:?}", network_side);
-                return;
-            }
-
-            println!("Message sent for client");
-        });
-    }
-
-    pub fn send_message(&mut self, message: Box<dyn MessageTrait>, runtime: &Runtime){
+    pub fn send_message(&mut self, message: &dyn MessageTrait, runtime: &Runtime){
         let write_half = match &self.write_half {
             Some(write_half) => Arc::clone(write_half),
             None => return,
@@ -251,7 +197,7 @@ impl TcpConnection {
                 return;
             }
 
-            println!("Message sent for client");
+            //println!("Message sent for client");
         });
     }
 }

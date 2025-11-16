@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use bevy::app::App;
 use bevy::log::error;
-use bevy::prelude::{Added, AppTypeRegistry, Changed, Commands, Component, Entity, EventReader, Last, Plugin, PostUpdate, Query, Reflect, ReflectComponent, Res, ResMut, Resource, Update, With, Without, World};
+use bevy::prelude::{Added, AppTypeRegistry, Changed, Commands, Component, Entity, EventReader, Last, ParamSet, Plugin, PostUpdate, Query, Reflect, ReflectComponent, Res, ResMut, Resource, Update, With, Without, World};
 use bevy::reflect::GetTypeRegistration;
 use bincode::config::standard;
 use bincode::{Decode, Encode};
@@ -59,8 +59,10 @@ pub trait RegisterReplicatedComponent{
 
 pub fn component_changed_server<T: ComponentReplicated>(
     added_query: Query<(Entity, &mut Replicated, &T), (Added<Replicated>, Without<FirstReplicated>)>,
-    updated_clients_connected_query: Query<(Entity, &mut Replicated, &T), (With<Replicated>, With<FirstReplicated>)>,
-    changed_query: Query<(Entity, &mut Replicated, &T), (With<Replicated>, Changed<T>)>,
+    mut set: ParamSet<(
+        Query<(Entity, &mut Replicated, &T), (With<Replicated>, With<FirstReplicated>)>,
+        Query<(Entity, &mut Replicated, &T), (With<Replicated>, Changed<T>, With<FirstReplicated>)>,
+    )>,
     replication_components_registry: Res<ReplicationComponentsRegistry>,
     mut server_components_queue: ResMut<ServerReplicationQueue>,
     new_clients_to_replicate: Res<NewClientsToReplicate>,
@@ -94,7 +96,7 @@ pub fn component_changed_server<T: ComponentReplicated>(
     if updated {return;}
 
     if new_clients_to_replicate.0.len() > 0 {
-        for (entity, _, comp) in &updated_clients_connected_query {
+        for (entity, _, comp) in set.p0().iter() {
             let replicate_to = server_components_queue.0.get_mut(&entity);
 
             if let Some(replicate_to) = replicate_to {
@@ -125,7 +127,7 @@ pub fn component_changed_server<T: ComponentReplicated>(
 
     if updated {return;}
 
-    for (entity, _, comp) in &changed_query {
+    for (entity, _, comp) in set.p1().iter() {
         let replicate_to = server_components_queue.0.get_mut(&entity);
 
         if let Some(replicate_to) = replicate_to {
@@ -150,6 +152,7 @@ pub fn deserialize_component<T: ComponentReplicated>(bytes: &[u8]) -> Box<dyn Re
 
     Box::new(val)
 }
+
 impl ReplicationComponentsRegistry {
     pub fn registry<T: ComponentReplicated>(&mut self) {
         let type_id = TypeId::of::<T>();

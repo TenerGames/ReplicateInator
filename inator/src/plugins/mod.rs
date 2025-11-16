@@ -16,7 +16,7 @@ pub struct ClientConnected(pub Uuid, pub ConnectionsType, pub &'static str);
 pub struct ClientDiconnected(pub Uuid, pub ConnectionsType, pub &'static str);
 
 #[derive(Serialize, Deserialize, Message)]
-pub struct ConnectedMessage {
+pub(crate) struct ConnectedMessage {
     pub uuid: Uuid
 }
 

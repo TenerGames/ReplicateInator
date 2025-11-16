@@ -1587,6 +1587,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "inator",
+ "shared",
 ]
 
 [[package]]
@@ -3853,6 +3854,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "inator",
+ "shared",
 ]
 
 [[package]]
@@ -3862,6 +3864,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bincode",
+ "inator",
+ "serde",
 ]
 
 [[package]]
@@ -4398,9 +4410,9 @@ checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
 
 [[package]]
 name = "uuid"
-version = "1.18.0"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f33196643e165781c20a5ead5582283a7dacbb87855d867fbc2df3f81eddc1be"
+checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
 dependencies = [
  "getrandom 0.3.3",
  "js-sys",

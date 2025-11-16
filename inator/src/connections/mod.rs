@@ -2,8 +2,11 @@
 use bevy::log::warn;
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use crate::connections::tcp::client::{ClientTcpConnection, ClientTcpSettings};
 use crate::connections::tcp::server::{ServerTcpConnection, ServerTcpSettings};
+use crate::systems::messaging::MessageTrait;
+
 pub mod tcp;
 
 type ConnectMap<T> = HashMap<String,T>;
@@ -80,8 +83,7 @@ pub trait Connection {
 pub trait Connections {
     fn new() -> Self;
     fn remove_connection(&mut self, name: &str);
-    fn new_server_tcp_connection(&mut self, settings: ServerTcpSettings, name: &'static str);
-    fn new_client_tcp_connection(&mut self, settings: ClientTcpSettings, name: &'static str);
+    fn is_connection_open(&self, name: &String) -> bool;
 }
 
 impl Default for BytesOptions{
@@ -111,25 +113,12 @@ impl Connections for ClientConnections {
         }
     }
 
-    fn new_server_tcp_connection(&mut self, _settings: ServerTcpSettings, _name: &'static str) {
-        warn!("You cant create server connection on client");
-    }
-
-    fn new_client_tcp_connection(&mut self, settings: ClientTcpSettings, name: &'static str) {
-        if self.0.contains_key(name) {
-            warn!("You already have a connection with this name");
-            return;
+    fn is_connection_open(&self, name: &String) -> bool {
+        if let Some(_) = self.0.get(name) {
+           true
+        }else {
+            false
         }
-
-        let parsed_name = match name.parse::<String>() {
-            Ok(name) => name,
-            Err(_) => {
-                warn!("Invalid string name");
-                return;
-            }
-        };
-
-        self.0.insert(parsed_name, ClientConnectionType::Tcp(ClientTcpConnection::new(settings, name)));
     }
 }
 
@@ -147,8 +136,94 @@ impl Connections for ServerConnections {
             }
         }
     }
+    fn is_connection_open(&self, name: &String) -> bool {
+        if let Some(_) = self.0.get(name) {
+            true
+        }else {
+            false
+        }
+    }
+}
 
-    fn new_server_tcp_connection(&mut self, settings: ServerTcpSettings, name: &'static str) {
+impl ClientConnections {
+    pub fn new_client_tcp_connection(&mut self, settings: ClientTcpSettings, name: &'static str) {
+        if self.0.contains_key(name) {
+            warn!("You already have a connection with this name");
+            return;
+        }
+
+        let parsed_name = match name.parse::<String>() {
+            Ok(name) => name,
+            Err(_) => {
+                warn!("Invalid string name");
+                return;
+            }
+        };
+
+        self.0.insert(parsed_name, ClientConnectionType::Tcp(ClientTcpConnection::new(settings, name)));
+    }
+}
+
+impl ServerConnections {
+    pub fn send_for_all_clients(&mut self, message: &dyn MessageTrait, name: &String) {
+        let connection = self.0.get_mut(name);
+
+        if let Some(connection) = connection {
+            match connection {
+                ServerConnectionType::Tcp(tcp_connection) => {
+                    for (_,client_connection) in tcp_connection.connections.iter_mut() {
+                        client_connection.send_message(message, tcp_connection.runtime.as_ref().unwrap());
+                    }
+                }
+            }
+        }else {
+            warn!("Invalid connection");
+        }
+    }
+
+    pub fn send_to_clients(&mut self, message: &dyn MessageTrait, name: &String, to_clients: &Vec<Uuid>,) {
+        let connection = self.0.get_mut(name);
+
+        if let Some(connection) = connection {
+            match connection {
+                ServerConnectionType::Tcp(tcp_connection) => {
+                    for client in to_clients{
+                        let client_connection = tcp_connection.connections.get_mut(client);
+
+                        if let Some(client_connection) = client_connection{
+                            client_connection.send_message(message,tcp_connection.runtime.as_ref().unwrap());
+                        }else{
+                            warn!("Client not conneceted");
+                        }
+                    }
+                }
+            }
+        }else{
+            warn!("Invalid connection");
+        }
+    }
+    
+    pub fn send_message_to_client(&mut self, name: &'static str, message: &dyn MessageTrait, uuid: &Uuid) {
+        let connection = self.0.get_mut(name);
+
+        if let Some(connection) = connection {
+            match connection {
+                ServerConnectionType::Tcp(tcp_connection) => {
+                    let client_connection = tcp_connection.connections.get_mut(uuid);
+                    
+                    if let Some(client_connection) = client_connection{
+                        client_connection.send_message(message,tcp_connection.runtime.as_ref().unwrap());
+                    }else{
+                        warn!("Client not conneceted");
+                    }
+                }
+            }
+        }else{
+            warn!("Invalid connection");
+        }
+    }
+
+    pub fn new_server_tcp_connection(&mut self, settings: ServerTcpSettings, name: &'static str) {
         if self.0.contains_key(name) {
             warn!("You already have a connection with this name");
             return;
@@ -163,9 +238,5 @@ impl Connections for ServerConnections {
         };
 
         self.0.insert(parsed_name, ServerConnectionType::Tcp(ServerTcpConnection::new(settings, name)));
-    }
-
-    fn new_client_tcp_connection(&mut self, _settings: ClientTcpSettings, _name: &'static str) {
-        warn!("You cant create client connection on server");
     }
 }

@@ -9,7 +9,8 @@ pub fn add(left: u64, right: u64) -> u64 {
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum NetworkSide{
     Client,
-    Server
+    Server,
+    LocalServer
 }
 
 #[cfg(test)]

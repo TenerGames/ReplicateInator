@@ -1,5 +1,5 @@
 [package]
-name = "message_derive"
+name = "component_replicated_derive"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -9,5 +9,6 @@ proc-macro = true
 
 [dependencies]
 quote = { version = "1.0.42" }
-syn = { version = "2.0.110" }
+syn = { version = "2.0.110", features = ["full"] }
 proc-macro2 = { version = "1.0.103" }
+

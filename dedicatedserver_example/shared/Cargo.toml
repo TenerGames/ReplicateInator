@@ -9,3 +9,6 @@ bevy = { workspace = true }
 inator = { path = "../../inator" }
 serde = { workspace = true }
 bincode = { workspace = true }
+bevy-inspector-egui = { version = "0.35.0" }
+message_derive = { path = "../../message_derive" }
+component_replicated_derive = { path = "../../component_replicated_derive" }

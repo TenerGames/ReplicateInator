@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Mutex;
 use bevy::app::App;
-use bevy::prelude::{Event, World};
+use bevy::prelude::{Message, World};
 use bincode::config::standard;
-use typetag::__private::once_cell::sync::Lazy;
+use typetag::__private21::once_cell::sync::Lazy;
 use uuid::Uuid;
 use crate::connections::ConnectionsType;
 use crate::NetworkSide;
@@ -17,14 +17,14 @@ pub trait MessageTrait: Send + Sync + Any {
     fn as_any(&self) -> &dyn Any;
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct MessageReceivedFromServer<T: MessageTrait>{
     pub message: T,
     pub message_type: ConnectionsType,
     pub connection_name: &'static str
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct MessageReceivedFromClient<T: MessageTrait>{
     pub message: T,
     pub message_type: ConnectionsType,
@@ -47,13 +47,13 @@ macro_rules! register_message_type {
                 let msg = boxed.downcast::<$type>().expect("Failed to downcast");
 
                 if network_side == &NetworkSide::Client {
-                    world.send_event(MessageReceivedFromServer {
+                    world.write_message(MessageReceivedFromServer {
                         message: *msg,
                         message_type,
                         connection_name,
                     });
                 } else {
-                    world.send_event(MessageReceivedFromClient {
+                    world.write_message(MessageReceivedFromClient {
                         message: *msg,
                         message_type,
                         sender: uuid,
@@ -84,12 +84,12 @@ pub fn deserialize_message(buf: &[u8]) -> Option<Box<dyn MessageTrait>> {
 
 pub fn register_message_type<T: MessageTrait>(app: &mut App, network_side: &NetworkSide){
     if network_side == &NetworkSide::Client {
-        app.add_event::<MessageReceivedFromServer<T>>();
+        app.add_message::<MessageReceivedFromServer<T>>();
     }else if network_side == &NetworkSide::Server {
-        app.add_event::<MessageReceivedFromClient<T>>();
+        app.add_message::<MessageReceivedFromClient<T>>();
     }else {
-        app.add_event::<MessageReceivedFromServer<T>>();
-        app.add_event::<MessageReceivedFromClient<T>>();
+        app.add_message::<MessageReceivedFromServer<T>>();
+        app.add_message::<MessageReceivedFromClient<T>>();
     }
 
     register_message_type!(T, &DISPATCHERS);

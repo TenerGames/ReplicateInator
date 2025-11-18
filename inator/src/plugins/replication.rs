@@ -2,11 +2,12 @@
 use std::collections::HashMap;
 use bevy::app::App;
 use bevy::log::error;
-use bevy::prelude::{Added, AppTypeRegistry, Changed, Commands, Component, Entity, EventReader, Last, ParamSet, Plugin, PostUpdate, Query, Reflect, ReflectComponent, Res, ResMut, Resource, Update, With, Without, World};
+use bevy::prelude::{Added, AppTypeRegistry, Changed, Commands, Component, Entity, Last, MessageReader, ParamSet, Plugin, PostUpdate, Query, Reflect, ReflectComponent, Res, ResMut, Resource, Update, With, Without, World};
 use bevy::reflect::GetTypeRegistration;
 use bincode::config::standard;
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 use uuid::Uuid;
 use message_derive::Message;
 use crate::connections::{ServerConnections};
@@ -18,7 +19,7 @@ pub struct ReplicatingPlugin {
 }
 pub struct ReplicationInfo{
     type_id: TypeId,
-    deserialize_fn: fn(&[u8]) -> Box<dyn Reflect>,
+    deserialize_fn: fn(&String) -> Box<dyn Reflect>,
 }
 
 #[derive(Component)]
@@ -27,7 +28,7 @@ pub struct FirstReplicated;
 #[derive(Serialize, Deserialize, Message)]
 pub struct ReplicateMessageFromServer{
     replicated_byes: Vec<u8>,
-    components: HashMap<i32,Vec<u8>>
+    components: HashMap<i32,String>
 }
 
 #[derive(Component, Decode, Encode)]
@@ -39,7 +40,7 @@ pub struct Replicated{
 pub struct ReplicateTo{
     all_clients: bool,
     to_clients: Vec<Uuid>,
-    bytes: HashMap<i32, Vec<u8>>,
+    jsons_datas: HashMap<i32, String>,
 }
 
 #[derive(Default,Resource)]
@@ -51,7 +52,7 @@ pub struct ReplicatedEntities(HashMap<Uuid, Entity>);
 #[derive(Default,Resource)]
 pub struct NewClientsToReplicate(pub(crate) Vec<Uuid>);
 
-pub trait ComponentReplicated: Component + GetTypeRegistration + Reflect + Decode<()> + Encode {}
+pub trait ComponentReplicated: Component + GetTypeRegistration + Reflect + Default + Serialize + DeserializeOwned {}
 
 pub trait RegisterReplicatedComponent{
     fn register_replicated_component<T: ComponentReplicated>(&mut self, network_side: &NetworkSide) -> &mut Self;
@@ -70,20 +71,20 @@ pub fn component_changed_server<T: ComponentReplicated>(
 ){
     let type_id = TypeId::of::<T>();
     let id_registry = replication_components_registry.1.get(&type_id).unwrap();
-    let config = standard();
     let mut updated = false;
 
     for (entity, _, comp) in &added_query {
         let replicate_to = server_components_queue.0.get_mut(&entity);
+        let json_str = serde_json::to_string(&comp).unwrap();
 
         if let Some(replicate_to) = replicate_to {
-            replicate_to.bytes.insert(*id_registry, bincode::encode_to_vec(comp, config).unwrap());
+            replicate_to.jsons_datas.insert(*id_registry, json_str);
         }else{
             server_components_queue.0.insert(entity,ReplicateTo{
                 all_clients: true,
                 to_clients: Vec::new(),
-                bytes: HashMap::from([
-                    (*id_registry, bincode::encode_to_vec(comp, config).unwrap())
+                jsons_datas: HashMap::from([
+                    (*id_registry, json_str)
                 ]),
             });
         }
@@ -98,9 +99,10 @@ pub fn component_changed_server<T: ComponentReplicated>(
     if new_clients_to_replicate.0.len() > 0 {
         for (entity, _, comp) in set.p0().iter() {
             let replicate_to = server_components_queue.0.get_mut(&entity);
+            let json_str = serde_json::to_string(&comp).unwrap();
 
             if let Some(replicate_to) = replicate_to {
-                replicate_to.bytes.insert(*id_registry, bincode::encode_to_vec(comp, config).unwrap());
+                replicate_to.jsons_datas.insert(*id_registry, json_str);
 
                 for client in &new_clients_to_replicate.0 {
                     replicate_to.to_clients.push(*client);
@@ -109,8 +111,8 @@ pub fn component_changed_server<T: ComponentReplicated>(
                 let mut replicate_to_new = ReplicateTo{
                     all_clients: false,
                     to_clients: vec![],
-                    bytes: HashMap::from([
-                        (*id_registry, bincode::encode_to_vec(comp, config).unwrap())
+                    jsons_datas: HashMap::from([
+                        (*id_registry, json_str)
                     ]),
                 };
 
@@ -129,15 +131,16 @@ pub fn component_changed_server<T: ComponentReplicated>(
 
     for (entity, _, comp) in set.p1().iter() {
         let replicate_to = server_components_queue.0.get_mut(&entity);
+        let json_str = serde_json::to_string(&comp).unwrap();
 
         if let Some(replicate_to) = replicate_to {
-            replicate_to.bytes.insert(*id_registry, bincode::encode_to_vec(comp, config).unwrap());
+            replicate_to.jsons_datas.insert(*id_registry, json_str);
         }else{
             server_components_queue.0.insert(entity,ReplicateTo{
                 all_clients: true,
                 to_clients: Vec::new(),
-                bytes: HashMap::from([
-                    (*id_registry, bincode::encode_to_vec(comp, config).unwrap())
+                jsons_datas: HashMap::from([
+                    (*id_registry, json_str)
                 ]),
             });
         }
@@ -146,9 +149,8 @@ pub fn component_changed_server<T: ComponentReplicated>(
     }
 }
 
-pub fn deserialize_component<T: ComponentReplicated>(bytes: &[u8]) -> Box<dyn Reflect> {
-    let (val, _): (T, usize) =
-        bincode::decode_from_slice(bytes, standard()).unwrap();
+pub fn deserialize_component<T: ComponentReplicated>(json: &String) -> Box<dyn Reflect> {
+    let val: T = serde_json::from_str(json.as_str()).unwrap();
 
     Box::new(val)
 }
@@ -173,7 +175,6 @@ impl ReplicationComponentsRegistry {
         self.1.contains_key(type_id)
     }
 }
-
 impl RegisterReplicatedComponent for App{
     fn register_replicated_component<T: ComponentReplicated>(&mut self, network_side: &NetworkSide) -> &mut Self {
         self.register_type::<T>();
@@ -245,12 +246,12 @@ pub fn replicate_to_client(
             if replicate_to.all_clients{
                 server_connections.send_for_all_clients(&ReplicateMessageFromServer{
                     replicated_byes: bincode::encode_to_vec(replicated, config).unwrap(),
-                    components: replicate_to.bytes,
+                    components: replicate_to.jsons_datas,
                 }, &string_ref);
             }else{
                 server_connections.send_to_clients(&ReplicateMessageFromServer{
                     replicated_byes: bincode::encode_to_vec(replicated, config).unwrap(),
-                    components: replicate_to.bytes,
+                    components: replicate_to.jsons_datas,
                 }, &string_ref, &replicate_to.to_clients)
             }
 
@@ -262,7 +263,7 @@ pub fn replicate_to_client(
 }
 
 pub fn replication_from_server(
-    mut replicate_message_from_server: EventReader<MessageReceivedFromServer::<ReplicateMessageFromServer>>,
+    mut replicate_message_from_server: MessageReader<MessageReceivedFromServer<ReplicateMessageFromServer>>,
     mut replicated_entities: ResMut<ReplicatedEntities>,
     replication_components_registry: Res<ReplicationComponentsRegistry>,
     mut commands: Commands

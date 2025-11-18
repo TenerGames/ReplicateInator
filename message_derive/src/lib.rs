@@ -19,4 +19,3 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-

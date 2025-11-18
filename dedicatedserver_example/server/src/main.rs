@@ -19,7 +19,7 @@ pub fn start_test(
     mut commands: Commands,
 ){
     commands.spawn((
-        Health{value:10},
+        Health{value:10,server_only_value: true},
         Replicated{
             connection_name: "Lobby".to_string(),
             entity_ref: uuid::Uuid::new_v4().into_bytes(),
@@ -32,6 +32,7 @@ pub fn test_health(
 ){
     for (_, health) in health_query.iter() {
         println!("Health on server is: {:?}", health.value);
+        println!("Health server_only_value on server is: {:?}", health.server_only_value);
     }
 }
 

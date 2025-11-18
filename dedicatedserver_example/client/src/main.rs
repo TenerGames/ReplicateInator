@@ -19,6 +19,7 @@ pub fn test_health(
 ){
     for (_, health) in health_query.iter() {
         println!("Health on client is: {:?}", health.value);
+        println!("Health server_only_value on client is: {:?}", health.server_only_value);
     }
 }
 

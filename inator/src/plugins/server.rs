@@ -1,7 +1,7 @@
 ﻿use std::any::Any;
 use std::sync::Arc;
 use bevy::app::App;
-use bevy::prelude::{Commands, EventWriter, First, IntoScheduleConfigs, Last, Plugin, ResMut, Update, World};
+use bevy::prelude::{Commands, First, IntoScheduleConfigs, Last, MessageWriter, Plugin, ResMut, Update, World};
 use uuid::Uuid;
 use crate::connections::{Connection, Connections, ConnectionsType, ServerConnectionType, ServerConnections};
 use crate::connections::tcp::connection::TcpConnection;
@@ -17,8 +17,8 @@ impl Plugin for ServerPlugin {
         register_message_type::<ConnectedMessage>(app, &NetworkSide::Client);
 
         app.insert_resource(ServerConnections::new());
-        app.add_event::<ClientConnected>();
-        app.add_event::<ClientDiconnected>();
+        app.add_message::<ClientConnected>();
+        app.add_message::<ClientDiconnected>();
         app.add_systems(First,(start_connections,check_client_connections_down).chain());
         app.add_systems(Update,(check_clients_connected,check_clients_messages).chain());
         app.add_systems(Last,(check_connection_up,start_listening_clients,restart_connection).chain());
@@ -39,7 +39,7 @@ pub fn start_connections(
 
 pub fn check_client_connections_down(
     mut server_connections: ResMut<ServerConnections>,
-    mut client_diconnected: EventWriter<ClientDiconnected>,
+    mut client_diconnected: MessageWriter<ClientDiconnected>,
 ){
     for (_,connection) in server_connections.0.iter_mut() {
         match connection {
@@ -71,7 +71,7 @@ pub fn check_client_connections_down(
 
 pub fn check_clients_connected(
     mut server_connections: ResMut<ServerConnections>,
-    mut client_connected_event: EventWriter<ClientConnected>,
+    mut client_connected_event: MessageWriter<ClientConnected>,
     mut new_clients_to_replicate: Option<ResMut<NewClientsToReplicate>>,
 ){
     for (_,connection) in server_connections.0.iter_mut() {

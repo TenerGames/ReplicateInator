@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["inator", "message_derive", "localserver_example", "dedicatedserver_example/client", "dedicatedserver_example/server", "dedicatedserver_example/shared"]
+members = ["inator", "message_derive", "localserver_example", "dedicatedserver_example/client", "dedicatedserver_example/server", "dedicatedserver_example/shared", "component_replicated_derive"]
 
 [workspace.package]
 version = "0.1.0"
@@ -23,11 +23,12 @@ opt-level = "s"
 strip = "debuginfo"
 
 [workspace.dependencies]
-bevy = { version = "0.16.1" , features = ["dynamic_linking"] }
-log = { version = "0.4.27", features = ["max_level_debug", "release_max_level_warn"] }
-tokio = { version = "1.47.1", features = ["full"] }
-tokio-util = { version = "0.7.16" }
-typetag = { version = "0.2.20" }
-serde = { version = "1.0.219", features = ["derive"] }
+bevy = { version = "0.17.2" , features = ["dynamic_linking"] }
+log = { version = "0.4.28", features = ["max_level_debug", "release_max_level_warn"] }
+tokio = { version = "1.48.0", features = ["full"] }
+tokio-util = { version = "0.7.17" }
+typetag = { version = "0.2.21" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.145" }
 bincode = { version = "2.0.1", features = ["serde"] }
 uuid = { version = "1.18.1", features = ["serde", "v8"] }
